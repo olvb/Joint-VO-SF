@@ -21,10 +21,9 @@
 **																				**
 *********************************************************************************/
 
-#include <stdio.h>
-#include <joint_vo_sf.h>
 #include <datasets.h>
-
+#include <joint_vo_sf.h>
+#include <stdio.h>
 
 // -------------------------------------------------------------------------------
 //								Instructions:
@@ -37,87 +36,82 @@
 // -------------------------------------------------------------------------------
 
 int main()
-{	
-	const bool save_results = true;
+{
+    const bool save_results = true;
     unsigned int res_factor = 2;
-	VO_SF cf(res_factor);
-	Datasets dataset(res_factor);
+    VO_SF cf(res_factor);
+    Datasets dataset(res_factor);
 
+    //Set dir of the Rawlog file
+    dataset.filename = "../rgbd_dataset_freiburg3_walking_static/";
 
-	//Set dir of the Rawlog file
-	dataset.filename = ".../rawlog_rgbd_dataset_freiburg1_desk/rgbd_dataset_freiburg1_desk.rawlog";
+    //Create the 3D Scene
+    cf.initializeSceneDatasets();
 
-	//Create the 3D Scene
-	cf.initializeSceneDatasets();
-
-	//Initialize
-	if (save_results)
-		dataset.CreateResultsFile();
+    //Initialize
+    if (save_results)
+        dataset.CreateResultsFile();
     dataset.openRawlog();
-	dataset.loadFrameAndPoseFromDataset(cf.depth_wf, cf.intensity_wf, cf.im_r, cf.im_g, cf.im_b);
-	cf.cam_pose = dataset.gt_pose; cf.cam_oldpose = dataset.gt_pose;
+    dataset.loadFrameAndPoseFromDataset(cf.depth_wf, cf.intensity_wf, cf.im_r, cf.im_g, cf.im_b);
+    cf.cam_pose = dataset.gt_pose;
+    cf.cam_oldpose = dataset.gt_pose;
     cf.createImagePyramid();
 
+    //Auxiliary variables
+    int pushed_key = 0, stop = 0;
+    bool anything_new = false, continuous_exec = false;
 
-	//Auxiliary variables
-	int pushed_key = 0, stop = 0;
-	bool anything_new = false, continuous_exec = false;
-	
-	while (!stop)
-	{	
+    while (!stop) {
 
         if (cf.window.keyHit())
             pushed_key = cf.window.getPushedKey();
         else
             pushed_key = 0;
 
-		switch (pushed_key) {
-			
-        //Load new frame and solve
-		case  'n':
+        switch (pushed_key) {
+
+            //Load new frame and solve
+        case 'n':
             dataset.loadFrameAndPoseFromDataset(cf.depth_wf, cf.intensity_wf, cf.im_r, cf.im_g, cf.im_b);
             cf.run_VO_SF(true);
             cf.createImagesOfSegmentations();
-			if (save_results)
-				dataset.writeTrajectoryFile(cf.cam_pose, cf.ddt);
+            if (save_results)
+                dataset.writeTrajectoryFile(cf.cam_pose, cf.ddt);
             anything_new = 1;
-			break;
+            break;
 
         //Turn on/off continuous estimation
         case 's':
             continuous_exec = !continuous_exec;
             break;
-		
-		//Close the program
-		case 'e':
-			stop = 1;
-			break;
-		}
 
-        if (continuous_exec)
-        {
-			dataset.loadFrameAndPoseFromDataset(cf.depth_wf, cf.intensity_wf, cf.im_r, cf.im_g, cf.im_b);
+        //Close the program
+        case 'e':
+            stop = 1;
+            break;
+        }
+
+        if (continuous_exec) {
+            dataset.loadFrameAndPoseFromDataset(cf.depth_wf, cf.intensity_wf, cf.im_r, cf.im_g, cf.im_b);
             cf.run_VO_SF(true);
             cf.createImagesOfSegmentations();
-			if (save_results)
-				dataset.writeTrajectoryFile(cf.cam_pose, cf.ddt);
+            if (save_results)
+                dataset.writeTrajectoryFile(cf.cam_pose, cf.ddt);
             anything_new = 1;
 
-			if (dataset.dataset_finished)
-				continuous_exec = false;
+            if (dataset.dataset_finished)
+                continuous_exec = false;
         }
-	
-		if (anything_new)
-		{
-			bool aux = false;
-			cf.updateSceneDatasets(dataset.gt_pose, dataset.gt_oldpose);
-			anything_new = 0;
-		}
-	}
 
-	if (save_results)
-		dataset.f_res.close();
+        if (anything_new) {
+            bool aux = false;
+            cf.updateSceneDatasets(dataset.gt_pose, dataset.gt_oldpose);
+            anything_new = 0;
+        }
+    }
 
-	return 0;
+    if (save_results)
+        dataset.f_res.close();
+
+    return 0;
 }
-

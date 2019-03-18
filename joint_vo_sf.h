@@ -25,9 +25,9 @@
 #define joint_VO_SF_H
 
 
-#include <mrpt/system.h>
+// #include <mrpt/system.h>
 #include <mrpt/poses/CPose3D.h>
-#include <mrpt/utils.h>
+// #include <mrpt/utils.h>
 #include <mrpt/gui/CDisplayWindow3D.h>
 #include <mrpt/opengl.h>
 #include <Eigen/Core>
@@ -86,7 +86,7 @@ public:
     //Velocities, transformations and poses
 	Eigen::Matrix4f T_clusters[NUM_LABELS];					//Rigid transformations estimated for each cluster
 	Eigen::Matrix4f T_odometry;								//Rigid transformation of the camera motion (odometry)
-	Vector6f twist_odometry, twist_level_odometry;			//Twist encoding the odometry (accumulated and local for the pyramid level)	
+	Vector6f twist_odometry, twist_level_odometry;			//Twist encoding the odometry (accumulated and local for the pyramid level)
 	mrpt::poses::CPose3D cam_pose, cam_oldpose;				//Estimated camera poses (current and prev)
 
 	//Parameters
@@ -123,21 +123,21 @@ public:
 	unsigned int max_iter_irls;				//Max number of iterations for the IRLS solver
 	unsigned int max_iter_per_level;		//Max number of complete iterations for every level of the pyramid
 	float k_photometric_res;				//Weight of the photometric residuals (against geometric ones)
-	float irls_chi2_decrement_threshold;	//Convergence threshold for the IRLS solver (change in chi2)	
-	float irls_delta_threshold;				//Convergence threshold for the IRLS solver (change in the solution)	
+	float irls_chi2_decrement_threshold;	//Convergence threshold for the IRLS solver (change in chi2)
+	float irls_delta_threshold;				//Convergence threshold for the IRLS solver (change in the solution)
 	SolveForMotionWorkspace ws_foreground, ws_background;		//Structures for efficient solver
 
 	//Estimate rigid motion for a set of pixels (given their indices)
-	void solveMotionForIndices(std::vector<std::pair<int, int> > const&indices, Vector6f &twist, SolveForMotionWorkspace &ws, bool is_background);	
+	void solveMotionForIndices(std::vector<std::pair<int, int> > const&indices, Vector6f &twist, SolveForMotionWorkspace &ws, bool is_background);
 	void solveMotionDynamicClusters();			//Estimate motion of dynamic clusters
 	void solveMotionStaticClusters();			//Estimate motion of static clusters
     void solveMotionAllClusters();				//Estimate motion after knowing the segmentation
 	void solveRobustOdometryCauchy();			//Estimate robust odometry before knowing the segmentation
 
-	
+
 
     //					Geometric clustering
-    //--------------------------------------------------------------   
+    //--------------------------------------------------------------
 	std::vector<Eigen::MatrixXi> labels;											//Integer non-smooth labelling
     std::vector<Eigen::Matrix<float, NUM_LABELS+1, Eigen::Dynamic> > label_funct;	//Indicator funtions for the continuous labelling
 	Eigen::Matrix<float, 3, NUM_LABELS> kmeans;										//Centers of the KMeans clusters
@@ -146,7 +146,7 @@ public:
 
 	void createLabelsPyramidUsingKMeans();				//Create the label pyramid
 	void initializeKMeans();							//Initialize KMeans by uniformly dividing the image plane
-	void kMeans3DCoord();								//Segment the scene in clusters using the 3D coordinates of the points				
+	void kMeans3DCoord();								//Segment the scene in clusters using the 3D coordinates of the points
     void computeRegionConnectivity();					//Compute connectivity graph (which cluster is contiguous to which)
     void smoothRegions(unsigned int image_level);		//Smooth/blend clusters for a better scene flow estimation
 
@@ -169,7 +169,7 @@ public:
     //						3D Scene
 	//--------------------------------------------------------------
 	mrpt::gui::CDisplayWindow3D		window;
-	mrpt::opengl::COpenGLScenePtr	scene;
+	mrpt::opengl::COpenGLScene::Ptr	scene;
 	Eigen::MatrixXf labels_image[3], backg_image[3];
 
 	void initializeSceneCamera();
@@ -186,7 +186,7 @@ public:
 	//--------------------------------------------------------------
 	void loadImagePairFromFiles(std::string files_dir, unsigned int res_factor);
 	bool loadImageFromSequence(std::string files_dir, unsigned int index, unsigned int res_factor);
-	void saveFlowAndSegmToFile(std::string files_dir);	
+	void saveFlowAndSegmToFile(std::string files_dir);
 
 };
 

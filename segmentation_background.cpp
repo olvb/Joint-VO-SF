@@ -24,7 +24,7 @@
 #include <joint_vo_sf.h>
 
 using namespace mrpt;
-using namespace mrpt::utils;
+// using namespace mrpt::utils;
 using namespace std;
 using namespace Eigen;
 
@@ -34,13 +34,13 @@ void VO_SF::segmentStaticDynamic()
 	//Done at the highest resolution
 	cols_i = cols; rows_i = rows;
 	image_level = round(log2(width/cols));
-	
+
 	//First warp images according to the estimated odometry
 	warpImagesAccurate();
 
 	//Aux variables and parameters
 	Matrix<float, NUM_LABELS, 1> lab_res_c, lab_res_d, weighted_res;
-	lab_res_c.fill(0.f); lab_res_d.fill(0.f); 
+	lab_res_c.fill(0.f); lab_res_d.fill(0.f);
 	const float trunc_threshold = 0.2f;
 	const float res_depth_t = 0.1f;
 
@@ -61,8 +61,8 @@ void VO_SF::segmentStaticDynamic()
 		{
 			const float d_here = depth_old_ref(v,u);
 			if (d_here != 0.f)
-			{	
-				const float sum_dif_depth = abs(depth_old_ref(v+1,u) - d_here) + abs(depth_old_ref(v-1,u) - d_here) 
+			{
+				const float sum_dif_depth = abs(depth_old_ref(v+1,u) - d_here) + abs(depth_old_ref(v-1,u) - d_here)
 										  + abs(depth_old_ref(v,u+1) - d_here) + abs(depth_old_ref(v,u-1) - d_here);
 				edge_mask(v,u) = (sum_dif_depth < threshold_edge);
 			}
@@ -74,7 +74,7 @@ void VO_SF::segmentStaticDynamic()
 			if ((depth_old_ref(v,u) != 0.f)&&(depth_warped_ref(v,u) != 0.f))
 			{
 				const unsigned int pixel_label = labels_ref(v,u); //Using the binary segmentation here
-				
+
 				//Truncated Mean with occlusion handling
 				const float dif_depth = depth_old_ref(v,u) - depth_warped_ref(v,u);
 				if (dif_depth < res_depth_t)
@@ -87,11 +87,11 @@ void VO_SF::segmentStaticDynamic()
 					const float mult_factor = edge_mask(v,u)*(2.f*res_depth_t - dif_depth);
 					lab_res_d[pixel_label] += mult_factor;
 					lab_res_c[pixel_label] += mult_factor*min(0.5f, abs(intensity_old_ref(v,u) - intensity_warped_ref(v,u)));
-				}		
+				}
 			}
 
 	for (unsigned int l=0; l<NUM_LABELS; l++)
-	{	
+	{
 		if (size_kmeans[l] != 0)
 		{
 			lab_res_c[l] /= size_kmeans[l];
@@ -99,7 +99,7 @@ void VO_SF::segmentStaticDynamic()
 		}
 
 		//Compute the overall residual
-		weighted_res[l] = k_photometric_res*lab_res_c[l] + lab_res_d[l]/max(1e-6f,kmeans(0,l)); 
+		weighted_res[l] = k_photometric_res*lab_res_c[l] + lab_res_d[l]/max(1e-6f,kmeans(0,l));
 	}
 
 
@@ -122,7 +122,7 @@ void VO_SF::optimizeSegmentation(Matrix<float, NUM_LABELS, 1> &r)
 	const float median_res = res_sorted.at(res_sorted.size()/2);
 	const float trunc_res = max(0.007f, min(0.015f*(1.f + 10.f*twist_odometry.norm()), median_res));
 	const float lim_nobackg = (1.f + 10.f*twist_odometry.norm())*trunc_res;
-	const float lim_backg = (2.f + 10.f*twist_odometry.norm())*trunc_res;	
+	const float lim_backg = (2.f + 10.f*twist_odometry.norm())*trunc_res;
 
 	//Find the number of connections between clusters (for the reg term)
 	unsigned int num_connections = 0;
@@ -147,7 +147,7 @@ void VO_SF::optimizeSegmentation(Matrix<float, NUM_LABELS, 1> &r)
 		}
 
 	//Define/set parameters of the optimization problem
-	const float lambda_reg = 0.5f; 
+	const float lambda_reg = 0.5f;
 	const float lambda_temp = use_b_temp_reg ? 1.5f : 0.f;
 	const float lambda_depth = 0.15f;
 	const float w_min = 0.5f*(lim_backg - lim_nobackg);
@@ -177,7 +177,7 @@ void VO_SF::optimizeSegmentation(Matrix<float, NUM_LABELS, 1> &r)
 				const float weight_reg = lambda_reg;
 				A(NUM_LABELS + cont_reg, l) = weight_reg;
 				A(NUM_LABELS + cont_reg, lc) = -weight_reg;
-				cont_reg++;		
+				cont_reg++;
 			}
 
 	//Build AtA and AtB
@@ -185,12 +185,12 @@ void VO_SF::optimizeSegmentation(Matrix<float, NUM_LABELS, 1> &r)
     AtB.multiply_AtB(A,B);
 
 	//Solve
-	b_segm = AtA.ldlt().solve(AtB);	
+	b_segm = AtA.ldlt().solve(AtB);
 
 	//Classify clusters as static, uncertain or moving
 	for (unsigned int l=0; l<NUM_LABELS; l++)
 	{
-		if (b_segm[l] > 0.667f) 
+		if (b_segm[l] > 0.667f)
 		{
 			label_static[l] = false;
 			label_dynamic[l] = true;
@@ -203,7 +203,7 @@ void VO_SF::optimizeSegmentation(Matrix<float, NUM_LABELS, 1> &r)
 		else
 		{
 			label_dynamic[l] = true;
-			label_static[l] = true;			
+			label_static[l] = true;
 		}
 	}
 }
@@ -211,7 +211,7 @@ void VO_SF::optimizeSegmentation(Matrix<float, NUM_LABELS, 1> &r)
 
 void VO_SF::warpStaticDynamicSegmentation()
 {
-	//Warp the KMeans and then compute belongings to them. 
+	//Warp the KMeans and then compute belongings to them.
 	//-----------------------------------------------------------
 	const MatrixXf &depth_ref = depth[image_level];
 	const MatrixXf &xx_ref = xx[image_level];
@@ -273,8 +273,8 @@ void VO_SF::computeSegTemporalRegValues()
 		for (unsigned int v=0; v<rows; v++)
 			if (depth_old_ref(v,u) != 0.f)
 				b_segm_warped[labels_ref(v,u)] += b_segm_image_warped(v,u);
-	
-	
+
+
 	for (unsigned int l=0; l<NUM_LABELS; l++)
 		if (size_kmeans[l] != 0)
 			b_segm_warped[l] /= size_kmeans[l];

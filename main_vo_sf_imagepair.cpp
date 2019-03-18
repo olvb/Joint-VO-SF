@@ -24,16 +24,17 @@
 
 #include <string.h>
 #include "joint_vo_sf.h"
+#include <mrpt/system/os.h>
 
 
 // -------------------------------------------------------------------------------
 //								Instructions:
 // Set the flag "save_results" to true if you want to save the estimated scene
-// flow and the static/dynamic segmentation 
+// flow and the static/dynamic segmentation
 // -------------------------------------------------------------------------------
 
 int main()
-{	
+{
 	const bool save_results = false;
 	const unsigned int res_factor = 2;
 	VO_SF cf(res_factor);

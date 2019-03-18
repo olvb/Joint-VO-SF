@@ -46,7 +46,7 @@ void Datasets::openRawlog()
 
 	// Set external images directory:
 	const string imgsPath = CRawlog::detectImagesDirectory(filename);
-	utils::CImage::IMAGES_PATH_BASE = imgsPath;
+	mrpt::img::CImage::setImagesPathBase(imgsPath);
 
 
 	//					Load ground-truth
@@ -76,7 +76,7 @@ void Datasets::openRawlog()
 	{
 		f_gt >> gt_matrix(k,0); f_gt >> gt_matrix(k,1); f_gt >> gt_matrix(k,2); f_gt >> gt_matrix(k,3);
 		f_gt >> gt_matrix(k,4); f_gt >> gt_matrix(k,5); f_gt >> gt_matrix(k,6); f_gt >> gt_matrix(k,7);
-		f_gt.ignore(10,'\n');	
+		f_gt.ignore(10,'\n');
 	}
 
 	f_gt.close();
@@ -90,10 +90,10 @@ void Datasets::loadFrameAndPoseFromDataset(Eigen::MatrixXf &depth_wf, Eigen::Mat
 		printf("\n End of the dataset reached. Stop estimating motion!");
 		return;
 	}
-	
+
 	//Read images
 	//-------------------------------------------------------
-	CObservationPtr alfa = dataset.getAsObservation(rawlog_count);
+	CObservation::Ptr alfa = dataset.getAsObservation(rawlog_count);
 
 	while (!IS_CLASS(alfa, CObservation3DRangeScan))
 	{
@@ -106,12 +106,12 @@ void Datasets::loadFrameAndPoseFromDataset(Eigen::MatrixXf &depth_wf, Eigen::Mat
 		alfa = dataset.getAsObservation(rawlog_count);
 	}
 
-	CObservation3DRangeScanPtr obs3D = CObservation3DRangeScanPtr(alfa);
+	CObservation3DRangeScan::Ptr obs3D = std::static_pointer_cast<CObservation3DRangeScan>(alfa);
 	obs3D->load();
 	const Eigen::MatrixXf range = obs3D->rangeImage;
-	const utils::CImage int_image =  obs3D->intensityImage;
-	const unsigned int height = range.getRowCount();
-	const unsigned int width = range.getColCount();
+	const mrpt::img::CImage int_image =  obs3D->intensityImage;
+	const unsigned int height = range.rows();
+	const unsigned int width = range.cols();
 	const unsigned int cols = width/downsample, rows = height/downsample;
 
 	math::CMatrixFloat intensity, r, g, b;
@@ -155,7 +155,7 @@ void Datasets::loadFrameAndPoseFromDataset(Eigen::MatrixXf &depth_wf, Eigen::Mat
 		if (last_gt_row >= gt_matrix.rows())
 		{
 			dataset_finished = true;
-			return;		
+			return;
 		}
 	}
 
@@ -208,17 +208,17 @@ void Datasets::CreateResultsFile()
 }
 
 void Datasets::writeTrajectoryFile(poses::CPose3D &cam_pose, Eigen::MatrixXf &ddt)
-{	
+{
 	//Don't take into account those iterations with consecutive equal depth images
 	if (abs(ddt.sumAll()) > 0)
-	{		
+	{
 		mrpt::math::CQuaternionDouble quat;
 		poses::CPose3D auxpose, transf;
 		transf.setFromValues(0,0,0,0.5*M_PI, -0.5*M_PI, 0);
 
 		auxpose = cam_pose - transf;
 		auxpose.getAsQuaternion(quat);
-	
+
 		char aux[24];
 		sprintf(aux,"%.04f", timestamp_obs);
 		f_res << aux << " " << cam_pose[0] << " " << cam_pose[1] << " " << cam_pose[2] << " ";

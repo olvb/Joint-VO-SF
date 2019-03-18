@@ -24,7 +24,7 @@
 #include <joint_vo_sf.h>
 
 using namespace mrpt;
-using namespace mrpt::utils;
+// using namespace mrpt::utils;
 using namespace std;
 using namespace Eigen;
 
@@ -43,7 +43,7 @@ struct IndexAndDistance
 void VO_SF::initializeKMeans()
 {
 	//Initialization: kmeans are computed at one resolution lower than the max (to speed the process up)
-	rows_i = rows/2; cols_i = cols/2; 
+	rows_i = rows/2; cols_i = cols/2;
 	image_level = round(log2(width/cols_i));
 	const MatrixXf &depth_ref = depth_old[image_level];
 	const MatrixXf &xx_ref = xx_old[image_level];
@@ -58,7 +58,7 @@ void VO_SF::initializeKMeans()
 	unsigned int u_label[NUM_LABELS], v_label[NUM_LABELS];
 	const unsigned int vert_div = ceil(sqrt(NUM_LABELS));
 	const float u_div = float(cols_i)/float(NUM_LABELS+1);
-	const float v_div = float(rows_i)/float(vert_div+1); 
+	const float v_div = float(rows_i)/float(vert_div+1);
 	for (unsigned int i=0; i<NUM_LABELS; i++)
 	{
 		u_label[i] = round((i + 1)*u_div);
@@ -103,7 +103,7 @@ void VO_SF::initializeKMeans()
 		if (size_label > 0)
 		{
 			std::nth_element(depth_sorted[l].begin(), depth_sorted[l].begin() + med_pos, depth_sorted[l].end());
-					
+
 			kmeans(0,l) = depth_sorted[l].at(med_pos);
 			kmeans(1,l) = (u_label[l]-disp_u_i)*kmeans(0,l)*inv_f_i;
 			kmeans(2,l) = (v_label[l]-disp_v_i)*kmeans(0,l)*inv_f_i;
@@ -133,7 +133,7 @@ void VO_SF::kMeans3DCoord()
 	initializeKMeans();
 
 
-    //                                      Iterate 
+    //                                      Iterate
     //=======================================================================================
     vector<vector<IndexAndDistance> > cluster_distances(NUM_LABELS, vector<IndexAndDistance>(NUM_LABELS));
 
@@ -293,7 +293,7 @@ void VO_SF::computeRegionConnectivity()
 		}
 
     for (unsigned int u=0; u<cols-1; u++)
-        for (unsigned int v=0; v<rows-1; v++)					
+        for (unsigned int v=0; v<rows-1; v++)
 			if (depth_old_ref(v,u) != 0.f)
             {
                 //Detect change in the labelling (v+1,u)
@@ -378,7 +378,7 @@ void VO_SF::createLabelsPyramidUsingKMeans()
 	for (unsigned int la=0; la<NUM_LABELS; la++)
 		for (unsigned int lb=la+1; lb<NUM_LABELS; lb++)
 			kmeans_dist(la,lb) = (kmeans.col(la) - kmeans.col(lb)).squaredNorm();
-	
+
 	//Generate levels
     for (unsigned int i = 1; i<ctf_levels; i++)
     {
@@ -393,12 +393,12 @@ void VO_SF::createLabelsPyramidUsingKMeans()
 		const MatrixXf &yy_old_ref = yy_old[image_level];
 
 		labels_ref.assign(NUM_LABELS);
-	
+
 		//Compute belonging to each label
 		for (unsigned int u=0; u<cols_i; u++)
 			for (unsigned int v=0; v<rows_i; v++)
 				if (depth_old_ref(v,u) != 0.f)
-				{			
+				{
 					unsigned int label = 0;
 					const Vector3f p(depth_old_ref(v,u), xx_old_ref(v,u), yy_old_ref(v,u));
 					float min_dist = (kmeans.col(0) - p).squaredNorm();

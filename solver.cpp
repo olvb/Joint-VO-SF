@@ -23,14 +23,15 @@
 
 #include <joint_vo_sf.h>
 #include <structs_parallelization.h>
+#include <mrpt/system/CTicTac.h>
 
 using namespace mrpt;
-using namespace mrpt::utils;
+// using namespace mrpt::utils;
 using namespace std;
 using namespace Eigen;
 
 //A strange size for "ws..." due to the fact that some pixels are used twice for odometry and scene flow (hence the 3/2 safety factor)
-VO_SF::VO_SF(unsigned int res_factor) : ws_foreground(3*640*480/(2*res_factor*res_factor)), ws_background(3*640*480/(2*res_factor*res_factor))  
+VO_SF::VO_SF(unsigned int res_factor) : ws_foreground(3*640*480/(2*res_factor*res_factor)), ws_background(3*640*480/(2*res_factor*res_factor))
 {
     //Resolutions and levels
 	rows = 240;
@@ -197,7 +198,7 @@ bool VO_SF::loadImageFromSequence(string files_dir, unsigned int index, unsigned
 		printf("\n End of sequence (or color image not found...)");
 		return true;
 	}
-		
+
 
     for (unsigned int v=0; v<height; v++)
         for (unsigned int u=0; u<width; u++)
@@ -269,7 +270,7 @@ void VO_SF::saveFlowAndSegmToFile(string files_dir)
 
 
 void VO_SF::createImagePyramid()
-{	
+{
 	//Threshold to use (or not) neighbours in the filter
 	const float max_depth_dif = 0.1f;
 
@@ -307,7 +308,7 @@ void VO_SF::createImagePyramid()
         {
             const MatrixXf &depth_prev = depth[i_1];
 			const MatrixXf &intensity_prev = intensity[i_1];
-			
+
 			for (unsigned int u = 0; u < cols_i; u++)
                 for (unsigned int v = 0; v < rows_i; v++)
                 {
@@ -400,7 +401,7 @@ void VO_SF::calculateCoord()
 }
 
 void VO_SF::calculateCoord(cv::Rect region)
-{		
+{
     const unsigned int x = region.tl().x, y = region.tl().y, w = region.width, h = region.height;
 
     Null.block(y,x,h,w).assign(false);
@@ -506,28 +507,28 @@ void VO_SF::computeWeights()
     weights_c.assign(0.f);
     weights_d.assign(0.f);
 	const MatrixXi &labels_ref = labels[image_level];
-	
+
 	//Parameters for error_linearization
     const float kduvt_c = 10.f;
 	const float kduvt_d = 200.f;
-	
+
     for (unsigned int u = 1; u < cols_i-1; u++)
 		for (unsigned int v = 1; v < rows_i-1; v++)
             if (Null(v,u) == false)
 			{
 				//Set measurement error
-				const float error_m_c = 1.f; 
+				const float error_m_c = 1.f;
 				const float error_m_d = 0.01f;
 
 				//Approximate linearization error
 				const float error_l_c = kduvt_c*(square(dct(v,u)) + square(dcu(v,u)) + square(dcv(v,u)));
-                const float error_l_d = kduvt_d*(square(ddt(v,u)) + square(ddu(v,u)) + square(ddv(v,u))); 
+                const float error_l_d = kduvt_d*(square(ddt(v,u)) + square(ddu(v,u)) + square(ddv(v,u)));
 
 				//Downweight uncertain regions
 				const float w_dinobj = label_static[labels_ref(v,u)] ? max(0.f, 1.f - b_segm[labels_ref(v,u)]) : 1.f;
 
                 weights_c(v,u) = sqrtf(w_dinobj/(error_m_c + error_l_c));
-				weights_d(v,u) = sqrtf(w_dinobj/(error_m_d + error_l_d)); 
+				weights_d(v,u) = sqrtf(w_dinobj/(error_m_d + error_l_d));
 			}
 
     const float inv_max_c = 1.f/weights_c.maximum();
@@ -570,13 +571,13 @@ void VO_SF::solveRobustOdometryCauchy()
 	ctx.num_pixels = ws.indices.size();
 	ctx.A = A; ctx.B = B;
 	ctx.Cauchy_factor = 16.f; //25 before
-	
+
 	for (unsigned int iter=0; iter<=max_iter_irls; iter++)
     {
         //Recompute residuals and update the Cauchy parameter
 		ctx.Var = robust_odo;
 		ctx.computeNewResiduals();
-		
+
 		//Build the system with the new weights
         IrlsElementFn fn(ctx);
 		IrlsElementFn::Range range(0, ws.indices.size(), 32);
@@ -594,7 +595,7 @@ void VO_SF::solveRobustOdometryCauchy()
 		const float chi2_ratio = chi2/max(1e-10f, chi2_last);
 		chi2_last = chi2;
 		if ((chi2_ratio > irls_chi2_decrement_threshold)||(delta_sol.lpNorm<Infinity>() < irls_delta_threshold))
-			break;	
+			break;
     }
 
 	//Compute the rigid transformation associated to the solution
@@ -619,7 +620,7 @@ void VO_SF::solveMotionForIndices(vector<pair<int, int> > const&indices, Vector6
 
 	//Solve IRLS (Cauchy robust penalty)
 	//===================================================================
-	float chi2_last = numeric_limits<float>::max(); 
+	float chi2_last = numeric_limits<float>::max();
 
 	//Aux structure for the solver
 	IrlsContext ctx;
@@ -629,16 +630,16 @@ void VO_SF::solveMotionForIndices(vector<pair<int, int> > const&indices, Vector6
 	ctx.Cauchy_factor = is_background ? 0.25f : 1.f;
 
 	for (unsigned int it=1; it<=max_iter_irls; it++)
-	{	
+	{
 		//Recompute residuals and update the Cauchy parameter
 		ctx.Var = twist;
 		ctx.computeNewResiduals();
-		
+
 		//Build the system with the new weights
 		IrlsElementFn fn(ctx);
 		IrlsElementFn::Range range(0, indices.size(), 32);
 		NormalEquationAndChi2 nes_and_chi2 = tbb::parallel_reduce(range, NormalEquationAndChi2(), fn, NormalEquationAndChi2::Reduce());
-		
+
 		//Solve the linear system of equations with least squares
 		nes_and_chi2.nes.get(AtA, AtB);
 		const Vector6f twist_new = AtA.ldlt().solve(-AtB);
@@ -649,7 +650,7 @@ void VO_SF::solveMotionForIndices(vector<pair<int, int> > const&indices, Vector6
 		const float chi2_ratio = nes_and_chi2.chi2/max(1e-10f, chi2_last);
 		if (chi2_ratio > irls_chi2_decrement_threshold || twist_delta.lpNorm<Infinity>() < irls_delta_threshold)
 			break;
-		
+
 		chi2_last = nes_and_chi2.chi2;
 	}
 }
@@ -682,7 +683,7 @@ void VO_SF::solveMotionDynamicClusters()
     {
         if (!label_dynamic[l])
 			continue;
-		
+
         //Create the indices for the elements in this cluster
 		indices.clear();
 
@@ -727,7 +728,7 @@ void VO_SF::solveMotionStaticClusters()
     //Save the solution
 	computeTransformationFromTwist(twist, true);
 	for (unsigned int l=0; l<NUM_LABELS; l++)
-		if ((label_static[l])&&(!label_dynamic[l])) 
+		if ((label_static[l])&&(!label_dynamic[l]))
 			computeTransformationFromTwist(twist, false, l);
 }
 
@@ -758,13 +759,13 @@ void VO_SF::computeTransformationFromTwist(Vector6f &twist, bool is_odometry, un
 
 		Matrix4f log_trans = T_odometry.log();
 		twist_odometry(0) = log_trans(0,3); twist_odometry(1) = log_trans(1,3); twist_odometry(2) = log_trans(2,3);
-		twist_odometry(3) = -log_trans(1,2); twist_odometry(4) = log_trans(0,2); twist_odometry(5) = -log_trans(0,1);	
+		twist_odometry(3) = -log_trans(1,2); twist_odometry(4) = log_trans(0,2); twist_odometry(5) = -log_trans(0,1);
 	}
 
 	//If moving cluster, just update its transformation (velocity not used)
 	else
 	{
-		T_clusters[label] = local_mat.exp()*T_clusters[label];	
+		T_clusters[label] = local_mat.exp()*T_clusters[label];
 	}
 }
 
@@ -883,7 +884,7 @@ void VO_SF::warpImagesAccurate()
 	//---------------------------------------------------------
 	for (unsigned int j = 0; j<cols_i; j++)
 		for (unsigned int i = 0; i<rows_i; i++)
-		{ 
+		{
 			const float z = depth_ref(i,j);
 			if (z != 0.f)
 			{
@@ -952,7 +953,7 @@ void VO_SF::warpImagesAccurate()
 	const float inv_f_i = 1.f/f;
 	for (unsigned int u = 0; u<cols_i; u++)
 		for (unsigned int v = 0; v<rows_i; v++)
-		{ 
+		{
 			if (wacu(v,u) != 0)
 			{
 				intensity_warped_ref(v,u) /= float(wacu(v,u));
@@ -971,11 +972,12 @@ void VO_SF::warpImagesAccurate()
 
 void VO_SF::run_VO_SF(bool create_image_pyr)
 {
-	CTicTac clock; clock.Tic();
-	
+	mrpt::system::CTicTac clock;
+	clock.Tic();
+
 	//Create the image pyramid if it has not been computed yet
     //----------------------------------------------------------------------------------
-	if (create_image_pyr) 
+	if (create_image_pyr)
 		createImagePyramid();
 
     //Create labels
@@ -1014,7 +1016,7 @@ void VO_SF::run_VO_SF(bool create_image_pyr)
 				xx_warped[image_level] = xx[image_level];
 				yy_warped[image_level] = yy[image_level];
 			}
-			else 
+			else
                 warpImagesAccurate(); // forward warping, more precise
 
 			//2. Compute inter coords (better linearization of the range and optical flow constraints)
@@ -1124,7 +1126,7 @@ void VO_SF::computeSceneFlowFromRigidMotions()
 					continue;
 				}
 
-	Matrix4f trans; 
+	Matrix4f trans;
     for (unsigned int u = 0; u<cols; u++)
         for (unsigned int v = 0; v<rows; v++)
         {
@@ -1132,7 +1134,7 @@ void VO_SF::computeSceneFlowFromRigidMotions()
 			const int pixel_label = v + u*rows;
 
 			if ((z != 0.f)&&(!ignore_label(labels_ref(v,u))))
-            {			
+            {
 				//Interpolate between the transformations
                 trans.fill(0.f);
 				bool pixel_static = true;
@@ -1149,7 +1151,7 @@ void VO_SF::computeSceneFlowFromRigidMotions()
 				}
 
 
-                
+
 				if (pixel_static) {mx(v,u) = 0.f; my(v,u) = 0.f; mz(v,u) = 0.f;}
 				else 	//Compute scene flow
 				{
@@ -1203,7 +1205,7 @@ void VO_SF::interpolateColorAndDepthAcu(float &c, float &d, const float ind_u, c
 			weights(3) = (ind_u - inf_u)*(ind_v - inf_v);
 			d = (weights*dmat).sum();
 			c = (weights*cmat).sum();
-		}	
+		}
     }
     else if ((sup_u == inf_u)&&(sup_v == inf_v))
     {
